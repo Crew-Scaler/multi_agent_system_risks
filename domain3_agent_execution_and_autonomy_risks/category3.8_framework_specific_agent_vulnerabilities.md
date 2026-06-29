@@ -1,0 +1,16 @@
+# Category 3.8 [NEW]: Framework-Specific Agent Vulnerabilities [RATC_5, RATC_6, RATC_7, RATC_8]
+
+*Alignment: Significantly expands GenAI Domain 3. The RATC domain (38 categories) represents the largest MAS-specific expansion, covering framework-specific tool vulnerabilities, infrastructure attacks, and reasoning exploits not present in any GenAI framework.*
+
+**Description:** Each major MAS framework (LangChain, AutoGen, CrewAI, Semantic Kernel, LangGraph) exposes unique vulnerability patterns arising from their specific architectural choices for tool selection, delegation, and state management.
+
+## Key Risks
+
+- 3.8.1 LangChain AgentExecutor Tool Selection and Error Handling Issues: Error propagation in AgentExecutor can cause agents to retry with escalated permissions or fall back to less-safe tool selections. [NoFW]
+- 3.8.2 AutoGen Conversation-Driven Tool Delegation and Consensus-Based Authorization: AutoGen's consensus-based authorization enables attackers to compromise one agent and use it to socially engineer other agents into approving unauthorized tool use. [NoFW]
+- 3.8.3 CrewAI Hierarchical Manager-Worker Privilege Escalation: CrewAI's manager agents pass full execution context to worker agents without least-privilege scoping, enabling workers to access tools beyond their designated scope. [NoFW]
+- 3.8.4 Semantic Kernel Plugin Execution and Kernel Service Registration Issues: Attackers with weak kernel configuration control can register malicious services alongside legitimate ones, causing the kernel to route requests to attacker-controlled implementations. [NoFW]
+- 3.8.5 Checkpointing State Restores Bypassing Re-Authorization: Workflows restored from checkpoints re-invoke tools using the authorization context captured at checkpoint time, bypassing re-validation of permissions that may have since been revoked. [NoFW]
+- 3.8.6 Tool Result Injection and Observation Manipulation: Attackers manipulate the observation inputs fed back to agents after tool execution, causing agents to act on falsified results. [NoFW]
+- 3.8.7 Centralized Tool Registry Poisoning: Attackers modify shared tool registry metadata (descriptions, schemas, capabilities) to cause all agents querying the registry to select attacker-desired tools. [NoFW]
+- 3.8.8 Tool Authorization Scope Confusion Across Agent Specializations: Multi-agent architectures granting different authorization scopes per agent specialization (research agents access document tools, execution agents access payment tools) create privilege escalation opportunities through intermediary coordination agents that hold access to both. Attackers compromising a coordination agent can invoke high-privilege payment tools using parameters extracted from low-privilege document agents' outputs—combining scopes that no single authorized path would permit. A compounding vulnerability is precondition validation bypass: Agent A verifies preconditions before invoking a tool, Agent B downstream assumes Agent A verified everything and skips re-checking. Compromising Agent A to skip its checks creates transitive trust enabling downstream tool execution without verified prerequisites. Single-agent systems enforce unified authorization; multi-agent delegation chains create exploitable scope-composition and validation-bypass surfaces absent from monolithic architectures. [NoFW]

@@ -1,0 +1,235 @@
+# Risk Management Analysis: Cisco A2A Scanner Framework
+
+**Framework:** Building A Secure Agentic AI Application Leveraging Google's A2A Protocol
+**Authors:** Habler, Huang, Kulkarni, Narajala
+**Method:** MAESTRO 7-layer threat modeling applied to Google's Agent-to-Agent (A2A) protocol
+
+**Framework Summary:** This framework analyzes the security of Google's A2A protocol for multi-agent AI systems. Its primary controls include AgentCard security (digital signatures, sanitization, rate limiting), strong authentication and authorization (mTLS, OAuth 2.0/OIDC, JWT, RBAC, least privilege, per-request credential validation), task replay prevention (nonces, timestamps, MACs), strict schema validation and input sanitization, secure communication (TLS 1.3, certificate pinning, DNSSEC), artifact integrity controls, audit logging with integrity protection, supply chain security (SBOM, dependency scanning), rate limiting and DoS protection, and server hardening (WAF, network segmentation). The framework is scoped to A2A protocol communication security and does not address model-level cognitive vulnerabilities, hardware-level attacks, UI/UX design, or memory system security.
+
+---
+
+## RATC - Agent–tool coupling as "policy‑level remote code execution"
+
+### RATC_1 - UI/UX Abstraction and Visibility Gaps - Strength score: 1
+
+The Cisco A2A Scanner framework focuses on protocol-level communication security and does not address UI/UX design concerns such as how tool invocations are visually represented to human approvers, progressive disclosure patterns concealing multi-agent tool chains, or multi-agent dashboard risk differentiation. The framework's requirement to explicitly document agent capabilities and trust boundaries in AgentCards provides a minimal indirect benefit by enforcing disclosure of what an agent can do, but this does not translate into how those capabilities are surfaced to human reviewers in approval UIs. The core risks of tool chain abstraction hiding true risk levels, progressive disclosure concealment, and context-driven tool selection without user awareness remain entirely outside this framework's scope.
+
+### RATC_2 - Approval Workflow and User Attention Vulnerabilities - Strength score: 1
+
+The Cisco A2A Scanner does not address human-in-the-loop approval workflow design, approval fatigue caused by excessive decision volume, keyboard shortcut hijacking, or time-based default exploits. These risks involve human factors engineering and UI security rather than protocol-level communication security. The framework's per-request authentication requirement (rejecting unauthenticated requests with 401/403 HTTP status codes) provides marginal protection by ensuring that even when human reviewers fail, automated agents must still authenticate at the protocol level. However, this does not mitigate the core risks of human attention manipulation, where attackers exploit fatigue or timing to obtain approvals for dangerous tool invocations.
+
+### RATC_3 - Tool Overload, Parameter Handling, and Selection Errors - Strength score: 2
+
+The Cisco A2A Scanner partially addresses parameter injection risks through its mandatory strict schema validation and comprehensive input sanitization controls applied to all A2A messages. In multi-agent A2A architectures, these controls enforce that parameters passed between agents are validated at each A2A server boundary, creating checkpoints that limit the propagation of maliciously injected parameter values across agent trust boundaries. The framework's requirement for explicit per-request authentication and credential validation also mitigates cross-agent argument injection scenarios where parameters constructed by one agent are executed by another without rechecking. However, the framework does not address tool overload privilege escalation (cognitive overload causing poor tool selection), tool provenance obscuration in chat interfaces, or the broader tool visibility gaps in inline suggestion patterns, as these are model-level and UI-level concerns.
+
+### RATC_4 - Confidence Manipulation and Tool Authorization - Strength score: 2
+
+The Cisco A2A Scanner directly addresses the authorization dimension of this subsubsection through RBAC, least privilege enforcement, per-request credential validation, and the requirement that agents validate credentials for every task rather than relying on inherited trust. These controls mitigate cross-agent privilege escalation through intermediary coordination agents by requiring each agent to independently verify authorization rather than transitively trusting upstream agents. The precondition validation bypass risk—where one agent verifies prerequisites but downstream agents skip rechecking—is partially addressed by the per-request authentication model. However, confidence score manipulation through adversarial prompt injection and majority voting attacks that artificially inflate confidence are model-level vulnerabilities that operate below the protocol layer and cannot be addressed by the A2A framework.
+
+### RATC_6 - Tool Metadata Poisoning Across Registries and Discovery - Strength score: 3
+
+The Cisco A2A Scanner directly and strongly addresses this subsubsection. The framework explicitly identifies "Poisoned AgentCard" as a key threat and provides comprehensive mitigations that map directly to the centralized tool registry poisoning and framework-specific tool selection poisoning risks described here. Specific controls include: input sanitization of all AgentCard content before processing with foundation models, whitelist-based character validation, escaping and encoding of special characters, schema validation with type constraints, Content Security Policy enforcement, digital signatures via trusted Certificate Authorities to ensure AgentCard authenticity and integrity, trusted registry validation, and reputation-based trust systems. The framework's principle of treating AgentCard content as untrusted input requiring rigorous validation directly counters the attack vector where few-shot parameter examples embedded in tool descriptions inject malicious instructions into agent context. These controls address both single-agent tool registry poisoning and multi-agent shared registry compromise.
+
+### RATC_8 - Advanced Tool Invocation Patterns and Inference - Strength score: 2
+
+The Cisco A2A Scanner provides moderate indirect mitigation. Task replay protection controls (nonces, timestamps, MACs, idempotency design, session management) limit observation injection attacks where replayed task results are used to manipulate downstream agent behavior. Strict schema validation and input sanitization at each A2A server boundary reduce the risk of maliciously formatted tool results being injected as legitimate observations for downstream agents in ReAct-style pipelines. However, the framework does not address dynamic replanning loop exploitation where attackers induce controlled failures to progressively chain innocuous tools into dangerous sequences, nor does it address cross-framework tool schema translation gaps beyond basic validation enforcement. The multi-agent observation manipulation risk remains substantially unaddressed.
+
+### RATC_9 - Web and Multimodal Tool Exploitation - Strength score: 1
+
+The Cisco A2A Scanner offers limited applicable coverage. URI validation controls (strict URI validation, allow-lists for acceptable URI schemes and domains, prohibition of fetching from untrusted URIs) provide some protection against SSRF-based web agent tool vulnerabilities. File handling controls (malware scanning, file type validation, size limits, secure storage with access controls) offer protection against malicious FilePart content in A2A messages. However, the framework does not specifically address adversarial instruction injection into web content that web scraping agents retrieve and process, multimodal RAG pipeline poisoning where retrieval agents select malicious documents, or vision model output laundering through multi-step processing. These attack vectors occur at the model and tool integration layers rather than the A2A communication layer.
+
+### RATC_10 - Efficiency Optimization and Resource Constraints - Strength score: 1
+
+The Cisco A2A Scanner does not address token allocation vulnerabilities, context window constraints forcing truncation of safety-critical tool descriptions, iteration budget exploitation, or temperature tuning attacks. These risks involve model-level operational parameters and agent configuration concerns that are entirely outside the A2A protocol communication framework. The rate limiting and DoS protection controls have minimal indirect relevance by preventing external flooding that could force agents into constrained operational modes, but this does not address the specific attack vector of crafting inputs that force upstream agents into constrained contexts where downstream agents inherit incomplete, safety-truncated tool descriptions.
+
+### RATC_11 - Tool Execution Infrastructure and Orchestration - Strength score: 2
+
+The Cisco A2A Scanner provides moderate relevant coverage for infrastructure orchestration attacks. Strong authentication and authorization requirements (mTLS, certificate validation, DNSSEC) mitigate service orchestration attacks where API gateway routing policies redirect A2A tool calls to attacker-controlled services or deprecated endpoints. Supply chain security controls (dependency scanning, SBOM maintenance, dependency pinning, vendor security assessments) directly address compromised A2A server and client dependencies. Server hardening guidance (network segmentation, WAF deployment, security updates, comprehensive monitoring) addresses Kubernetes and container orchestration attack surfaces including privilege escalation through misconfigured security contexts. However, the framework does not specifically address multi-agent microservice fleet-wide tool definition poisoning through compromised centralized registries or persistent volume/sidecar proxy attack vectors.
+
+### RATC_12 - Distributed and Hardware-Level Attacks - Strength score: 1
+
+The Cisco A2A Scanner does not address tensor parallelism GPU communication interception, KV cache poisoning through multi-user inference, or quantization calibration dataset poisoning. These are hardware-level infrastructure vulnerabilities that operate at layers entirely below the A2A protocol communication stack. The framework provides no meaningful controls applicable to attacks on shared GPU infrastructure, inter-GPU communication channels, or the quantization pipeline affecting model output biasing. This is an honest assessment: the A2A protocol security framework was not designed to address hardware-level attacks.
+
+### RATC_14 - Reasoning and Planning Vulnerabilities - Strength score: 1
+
+The Cisco A2A Scanner does not address chain-of-thought reasoning quality failures, poisoned reasoning trace injection, self-consistency and majority voting manipulation through manipulated sampling paths, or hierarchical task network planning vulnerabilities causing tool visibility fragmentation. These are model-level cognitive vulnerabilities in the reasoning and planning processes that occur entirely within the agent's internal processing pipeline. The A2A protocol framework addresses communication security between agents but has no influence over the internal reasoning quality or planning integrity of individual agents.
+
+### RATC_15 - Episodic Memory and Learning - Strength score: 1
+
+The Cisco A2A Scanner does not address episodic memory poisoning, trajectory poisoning where malicious tool sequences are stored as successful resolutions, or cross-agent tool coordination through shared episodic memory enabling one agent's compromise to propagate as learned policy to others. The framework focuses on communication security between agents rather than the internal memory architectures of individual agents. Episodic memory attacks exploit vulnerabilities in how agents store and recall past experiences, which is entirely outside the A2A protocol's communication security domain.
+
+### RATC_16 - Semantic Memory and RAG - Strength score: 1
+
+The Cisco A2A Scanner does not specifically address RAG pipeline and knowledge base poisoning, knowledge graph relationship poisoning causing unsafe tool combinations to appear recommended, query rewriting instruction injection, or knowledge base staleness causing agents to invoke tools with obsolete formats. The framework's general principle of treating ingested content as untrusted—highlighted in the AgentCard poisoning mitigations—implies awareness of content trustworthiness, but no specific controls are provided for semantic memory or RAG security. These risks require dedicated data pipeline and vector store security controls beyond the A2A communication layer.
+
+### RATC_17 - Utility Functions and Decision Logic - Strength score: 1
+
+The Cisco A2A Scanner does not address utility-weighted tool selection manipulation, outcome assumption injection causing agents to miscalculate tool utility, sequential expected utility miscalculation through misrepresentation of future options, or multi-objective utility function poisoning. These are internal decision logic vulnerabilities in how agents evaluate and choose actions, operating at the model and agent framework level rather than the A2A communication protocol layer. The framework provides no applicable controls for these risks.
+
+### RATC_18 - Rule-Based and Knowledge-Engineered Systems - Strength score: 1
+
+The Cisco A2A Scanner does not address rule-based authorization bypass through specificity hierarchy injection, forward chaining rule exploitation, certainty factor manipulation, or lexicographic heuristic objective reordering. These vulnerabilities exploit weaknesses in rule-based agent decision logic systems, which operate independently of the A2A protocol communication layer. The framework has no applicable controls for these rule-system integrity risks.
+
+### RATC_19 - Learning and Reinforcement Learning - Strength score: 1
+
+The Cisco A2A Scanner does not address reinforcement learning tool selection policy hijacking through reward signal poisoning, shared replay buffer poisoning in multi-agent RL systems, curriculum learning poisoning, imitation learning trajectory poisoning, or actor-critic cross-agent critic manipulation. These are training-time and model-level vulnerabilities in learned agent behavior that occur independently of the communication protocol. The framework cannot address vulnerabilities in how agents learn their policies from experience or reward signals.
+
+### RATC_21 - Parallel Retrieval Race Conditions in Multi-Agent Query Decomposition Systems - Strength score: 1
+
+The Cisco A2A Scanner does not specifically address parallel retrieval race conditions, shared index deduplication races, timeout-triggered cascading retrieval outages, or multi-stage caching temporal inconsistency. The supply chain security controls (SBOM, dependency scanning, container image integrity) provide marginal coverage of the container registry supply chain attack vector mentioned in this subsubsection, but this represents only a small component of the broader race condition and consistency failure risks. The core parallel retrieval and caching consistency risks are infrastructure and data pipeline concerns outside the A2A protocol scope.
+
+### RATC_22 - Multi-Stage Pipeline Result Caching Race Enabling Multi-Agent Consistency Failures - Strength score: 1
+
+The Cisco A2A Scanner does not address multi-stage pipeline cache TTL race conditions, cache write races, hash collision attacks poisoning shared cache entries, or event-based cache invalidation propagation inconsistencies. The supply chain security controls provide marginal indirect coverage of the registry credential compromise and GitOps automation attack vectors mentioned in this subsubsection. Tensor parallelism communication poisoning and profiling telemetry exposure enabling targeted DoS attacks are also outside this framework's scope. Cache consistency and pipeline coordination security require dedicated infrastructure-level controls.
+
+### RATC_27 - MIG Instance Co-Location Creating Shared Physical GPU Failure Propagation Across Multi-Agent Deployments - Strength score: 1
+
+The Cisco A2A Scanner does not address Multi-Instance GPU partitioning vulnerabilities, shared physical GPU hardware dependencies (power regulators, thermal management, PCIe interface, GPU firmware), firmware vulnerability exploitation enabling cross-partition memory access, or shared GPU driver stack failures causing fleet-wide outages. This framework focuses exclusively on protocol-level communication security for A2A interactions and has no applicable controls for hardware-level GPU isolation failures or physical infrastructure dependencies.
+
+### RATC_29 - Shared Workflow State Version Conflict Amplification Through Concurrent Write Flooding Creating Retry Storm Cascades - Strength score: 1
+
+The Cisco A2A Scanner does not directly address optimistic locking version conflict amplification, concurrent write flooding creating retry storms, or the positive feedback loop where stale reads generate further conflicts. The rate limiting controls (rate limiting on all A2A endpoints, exponential backoff for failed attempts, DoS mitigation) provide marginal indirect protection against flooding attacks that could exacerbate contention, but do not address the underlying version conflict mechanism or the retry storm cascade that scales quadratically with concurrency. Shared workflow state consistency requires dedicated distributed systems controls.
+
+### RATC_30 - Guardrail Bypass Through Infrastructure Failure Injection Preventing Safety Validation Execution - Strength score: 1
+
+The Cisco A2A Scanner's rate limiting, DoS mitigation, network segmentation, WAF deployment, and comprehensive monitoring controls provide weak indirect protection against infrastructure failure injection attacks that aim to cause guardrail timeout bypass. These controls reduce the attack surface for network flooding and resource exhaustion against centralized validation endpoints. However, the framework does not specifically address guardrail timeout exploitation, safety validation service unavailability as an attack vector, or the fleet-wide guardrail bypass risk when agents fall back to delivering unvalidated responses. Dedicated safety validation infrastructure resilience controls are needed to address this risk.
+
+---
+
+## RDL - New data‑leakage channels via large contexts, logs, and probabilistic recall
+
+### RDL_1 - UI/UX Patterns - Strength score: 1
+
+The Cisco A2A Scanner framework addresses protocol-level communication security and does not cover UI/UX session design, chat history management, command palette log storage, progressive disclosure patterns, or multi-agent dashboard aggregation. The risks in this subsubsection—accumulated sensitive data in chat histories, credential exposure through debug views, session persistence crossing security boundaries, command palette logs as reconnaissance artifacts, and cross-domain correlation through dashboard aggregation—are all application-layer UI design and session management concerns. The framework's data protection at rest guidance (encrypt sensitive stored data, proper key management) offers minimal indirect benefit by ensuring the underlying data is encrypted, but does not address the access control failures and aggregation risks specific to these UI patterns.
+
+### RDL_2 - Data Persistence and Caching - Strength score: 1
+
+The Cisco A2A Scanner does not address session persistence serialization creating queryable structured records of multi-agent interactions, cached response persistence outliving session lifetimes, or undo functionality preserving deleted sensitive data in recovery buffers. These are application-level data lifecycle management concerns. The framework's data protection at rest guidance (encrypt sensitive stored agent interaction data, secure storage of persistent data from agent interactions) provides the most relevant coverage, ensuring that cached and persisted A2A interaction data is encrypted. However, access control failures on cache entries, cross-user cache isolation failures, and GDPR right-to-be-forgotten conflicts with distributed undo buffers remain entirely outside the framework's scope.
+
+### RDL_3 - Streaming and Token-Level Leakage - Strength score: 2
+
+The Cisco A2A Scanner explicitly addresses streaming security through its SSE (Server-Sent Events) controls: requiring proper authentication for SSE connections, maintaining secure state management for long-lived connections, and monitoring for resource exhaustion attacks. These controls create authenticated, monitored streaming channels that reduce unauthorized interception of token-by-token streaming leakage. The framework's push notification security (signature verification for webhook payloads, HTTPS enforcement, backpressure-aware streaming) further limits streaming content exposure. However, the framework does not address tokenization boundary inference attacks revealing context window sizes, output length correlation enabling session activity reconstruction, or intermediate state streaming through multi-agent cycles where early-streamed tokens are already in buffers before redaction can apply.
+
+### RDL_4 - Search and Recall - Strength score: 1
+
+The Cisco A2A Scanner does not address probabilistic recall through conversation search that crosses agent security boundaries, semantic similarity matching surfacing sensitive content from unrelated contexts, or the absence of access-controlled search boundaries in unified multi-agent history indexes. These are application-level search and retrieval security concerns that require dedicated access-controlled search architecture. The framework provides no applicable controls for probabilistic information leakage through semantic search.
+
+### RDL_5 - Attribution and Observability - Strength score: 1
+
+The Cisco A2A Scanner does not specifically address multi-agent attribution logs revealing organizational hierarchy and operational priorities, framework-dependent logging aggregating cross-component system architecture disclosures, error classification pattern leakage revealing infrastructure fragility, or latency measurement information leakage enabling attack timing optimization. The framework's general logging guidance (maintain detailed security logs, ensure logs are protected and cannot be tampered with, implement monitoring and alerting for suspicious activities) provides minimal indirect benefit by securing log integrity, but does not address the reconnaissance value of multi-agent attribution metadata itself or the side-channel information embedded in latency and error patterns.
+
+### RDL_7 - Tool Invocation and Function Calling - Strength score: 2
+
+The Cisco A2A Scanner provides moderate indirect coverage for this subsubsection. Its audit trail integrity controls—specifically addressing insider threat and logging evasion through RBAC, audit logging with integrity checks, separation of duties, MFA for privileged roles, and security audits—directly mitigate the tool invocation audit trail poisoning risk (RDL_7_6) where attackers omit malicious invocations from compliance logs. The framework's secure error handling control (comprehensive error handling that does not expose sensitive information) partially addresses tool error messages containing implementation details. However, tool invocation logging as a side channel for context leakage, function calling JSON in context windows as a leakage vector, function description enumeration through registry APIs, and centralized tool execution log aggregation creating multi-agent exfiltration channels remain largely unaddressed by the A2A protocol framework.
+
+### RDL_9 - Multi-Agent Memory and State - Strength score: 1
+
+The Cisco A2A Scanner does not address cross-agent reflection memory leakage through shared infrastructure, ReAct reasoning trace persistence creating comprehensive attack graphs, distributed trace cross-tenant correlation leakage through timing analysis, shared memory blackboard state reconstruction via access pattern analysis, or dashboard correlation leakage revealing business workflows. These risks involve inter-agent shared memory architectures and coordination state visibility that are entirely outside the A2A protocol communication security domain. The framework's controls operate at the communication protocol boundary rather than the internal agent memory and state management layer.
+
+### RDL_10 - Reasoning and CoT Traces - Strength score: 1
+
+The Cisco A2A Scanner does not address any of the reasoning and chain-of-thought trace leakage risks in this subsubsection, including CoT trace leakage through memory queries, intermediate step verbosity enabling data reconstruction, reasoning-embedded secrets in shared traces, cross-agent reasoning context leakage, lookahead computation information leakage via tree state observation, preserved reasoning path context leakage, memory consolidation data leakage, intermediate reasoning trace probabilistic recall vulnerability, quality score metadata leakage, or failure case logging data leakage. These vulnerabilities involve how agents store, share, and probabilistically recall internal reasoning processes—a layer entirely separate from the A2A protocol communication stack.
+
+### RDL_11 - Multimodal and Input Processing - Strength score: 1
+
+The Cisco A2A Scanner's file handling controls (scanning uploaded files for malware, validating file types, enforcing size limits, storing uploaded files securely with appropriate access controls) provide minimal relevant coverage for multimodal content transmitted through A2A FilePart messages. However, the specific risks of vision model intermediate representation leakage, audio embedding privacy channels through voice characteristics, chart linearization producing machine-readable sensitive numerical data, and multimodal embedding inversion attacks reconstructing original sensitive images are model-level and vector store concerns that the A2A framework does not address.
+
+### RDL_12 - Error Handling and Graceful Degradation - Strength score: 2
+
+The Cisco A2A Scanner explicitly requires "comprehensive error handling that doesn't expose sensitive information" as a server implementation best practice. This directly mitigates error message logging as a data leakage channel (RDL_12_1) by designing error responses to avoid including sensitive context data. The framework also mandates detailed security logging for authentication attempts and security events with log protection, which reduces the risk of error logs accumulating unprotected sensitive information. However, retry attempt logging exposing intermediate states, fallback data exposure through alternative provider logging with inconsistent security postures, graceful degradation state logging creating capability disclosure, and circuit breaker state change logging enabling infrastructure reconnaissance are not specifically addressed by the A2A framework's controls.
+
+### RDL_13 - Evaluation and Testing Leakage - Strength score: 1
+
+The Cisco A2A Scanner does not address evaluation pipeline security, evaluation metric computation leakage, test dataset exposure through evaluation dashboards, evaluation artifact storage security, evaluation log leakage through detailed error messages, metric output fingerprinting, or benchmark result leakage through approval logs. These risks involve the evaluation and assessment infrastructure for AI agents, which the framework explicitly includes in its MAESTRO layer 5 (Evaluation and Observability) but does not provide detailed controls for in the context of data leakage prevention. The framework's general security logging and log protection controls provide minimal indirect benefit.
+
+### RDL_14 - Feedback and Testing - Strength score: 1
+
+The Cisco A2A Scanner does not address user feedback extraction as a vulnerability profiling mechanism or A/B test result leakage enabling attack strategy prediction. These risks involve feedback storage and testing infrastructure that is outside the A2A protocol communication security scope. No applicable controls are provided for protecting behavioral feedback data from systematic analysis by attackers.
+
+### RDL_15 - Evaluation Metric Exploitation - Strength score: 1
+
+The Cisco A2A Scanner does not address evaluation metric integrity, exact match metric exploitation through semantic paraphrasing, joint metric evasion through selective fact injection, Pass@K inconsistency exploitation for probabilistic attacks, or milestone scoring threshold manipulation. These are evaluation benchmark gaming vulnerabilities at the model assessment layer that the A2A communication protocol framework does not influence.
+
+### RDL_16 - Parameter and Configuration Leakage - Strength score: 1
+
+The Cisco A2A Scanner does not address context window logging leakage through parameter tuning trade-offs, token consumption pattern leakage through cost-optimized model routing, or latency-based inference through parameter optimization fingerprinting. These are operational side-channel vulnerabilities in how agent configurations and resource consumption patterns reveal sensitive information. The framework's monitoring and alerting controls provide minimal indirect benefit but do not address these statistical inference attack surfaces.
+
+### RDL_17 - Prompt Injection and Few-Shot Attacks - Strength score: 2
+
+The Cisco A2A Scanner provides moderate indirect coverage for prompt injection risks in the data flow context. The framework's AgentCard poisoning mitigations—input sanitization of all AgentCard content, whitelist-based character validation, escaping and encoding of special characters, schema validation, and the principle of treating ingested content as untrusted input requiring rigorous validation—establish a security pattern applicable to few-shot demonstration contamination and format injection attacks. The strict schema validation and input sanitization controls for all A2A messages further reduce the surface for injection attacks propagating through the A2A communication channel. However, the framework does not specifically address demonstration output format injection enabling parse confusion, generation pattern injection through biased few-shot examples, or few-shot contamination with leaked sensitive data at the model training and prompting layer.
+
+### RDL_18 - Distributed Tracing - Strength score: 1
+
+The Cisco A2A Scanner does not specifically address distributed tracing leakage through correlation IDs and span data enabling workflow reconstruction, or response schema validation log side channels revealing agent configuration through failure patterns. The framework's logging controls (protecting logs from tampering, RBAC for log access) provide minimal indirect coverage for securing distributed trace data, but do not address the inherent intelligence value of multi-agent correlation ID metadata or the fingerprinting attacks enabled by schema validation failure patterns.
+
+### RDL_19 - Execution and Orchestration - Strength score: 2
+
+The Cisco A2A Scanner provides moderate indirect coverage. Its explicit requirement for error handling that does not expose sensitive information directly mitigates execution path disclosure through error messages (RDL_19_1), limiting how much implementation detail propagates through error accumulation in multi-agent pipelines. The framework's per-request authentication model and audit logging with integrity controls also provide partial mitigation for parameter provenance tracking loss (RDL_19_2), as each A2A request carries explicit authentication that contributes to attribution, reducing anonymous parameter propagation. However, the multi-agent error detail propagation risk—where distributed error handling adds context layers revealing execution paths—is only partially addressed by server-level error handling controls that do not govern all participating agents in a heterogeneous pipeline.
+
+### RDL_20 - Multi-Agent Reasoning - Strength score: 1
+
+The Cisco A2A Scanner does not address orchestrator reasoning quality cascading effects, supervisor delegation reasoning transparency paradox, multi-agent reasoning coherence validation gaps, or consensus reasoning exploitation. These are vulnerabilities in how agents reason about coordination and delegation—internal cognitive processes that the A2A protocol communication framework does not govern. No applicable controls exist in the framework for these model-level multi-agent reasoning integrity risks.
+
+### RDL_21 - Efficiency and Cost Attribution - Strength score: 1
+
+The Cisco A2A Scanner does not address efficiency log information leakage, cost attribution metadata revealing operational sensitivity, cache performance metrics exposing high-value data targets, latency anomaly patterns inferring payload size, efficiency dashboard exposure of system internals, historical efficiency trend analysis for behavioral inference, or budget reallocation patterns revealing operational priorities. These are operational monitoring side-channel leakage risks that the A2A protocol security framework does not cover. The framework's monitoring controls (monitoring for suspicious activities) are about security event detection, not about preventing operational metrics from becoming information leakage channels.
+
+### RDL_22 - Infrastructure and Deployment - Strength score: 1
+
+The Cisco A2A Scanner's server hardening guidance (network segmentation, WAF, comprehensive monitoring, regular security assessments) and supply chain security controls provide minimal indirect coverage for infrastructure-level data leakage. However, the specific risks of message queue header metadata correlation, vector database similarity search result leakage through embedding exposure, Prometheus metrics leakage through high-cardinality labels, API gateway access log correlation for user activity reconstruction, MLflow artifact metadata leakage through versioning history, dead-letter queue content leakage, and centralized logging pipeline as a data exfiltration vector are infrastructure-specific data management risks that require dedicated controls beyond the A2A protocol security scope.
+
+### RDL_23 - Containerization Security - Strength score: 1
+
+The Cisco A2A Scanner's server hardening guidance mentions container orchestration security (implementing network segmentation to isolate the A2A server, using WAF, regular security updates) and supply chain security (dependency scanning, dependency pinning, SBOM). These provide minimal indirect coverage for containerization data leakage risks. However, the specific risks of CPU cache side-channel attacks between containerized agents, event stream retention creating durable data exposure, persistent volume mount permission escalation enabling cross-agent log access, sidecar proxy access log interception, init container environment variable leakage, kubelet port metrics exposure, and etcd database backup leakage require dedicated Kubernetes security controls that the A2A framework does not provide.
+
+### RDL_24 - Profiling and Optimization - Strength score: 1
+
+The Cisco A2A Scanner does not address profiling output data leakage through execution traces, MLflow artifact registry as a data exfiltration channel, baseline comparison leakage of historical behavior, or performance optimization logs as side-channel information sources. These are development and operations tooling security concerns that are entirely outside the A2A protocol communication security domain.
+
+### RDL_25 - Kubernetes Orchestration - Strength score: 1
+
+The Cisco A2A Scanner's server hardening guidance (network segmentation, WAF, security updates, comprehensive monitoring) provides minimal indirect coverage for Kubernetes deployment security. However, the specific risk of Kubernetes event auditing leaking multi-agent orchestration topology and inter-agent dependency graphs through correlated scaling and failure pattern analysis is a Kubernetes audit infrastructure concern that the A2A framework does not specifically address.
+
+### RDL_26 - GPU and Model Internals - Strength score: 1
+
+The Cisco A2A Scanner does not address any of the GPU and model internal leakage risks in this subsubsection, including GPU memory metrics leakage enabling agent activity reconstruction, container logs exposing inference intermediates in verbose logging, queue depth metrics enabling probabilistic workflow reconstruction, KV cache side-channel leakage through unencrypted tensor parallelism communication, engine binary metadata enabling model extraction, quantization artifacts as probabilistic leakage channels, GPU memory forensics via engine traces, or calibration dataset artifacts in quantization statistics. These are hardware-level and model-level vulnerabilities entirely outside the A2A protocol communication security scope.
+
+### RDL_27 - Load Balancing - Strength score: 1
+
+The Cisco A2A Scanner does not address load balancer routing decisions as side channels, batching window timing as information side-channels, caching hit/miss patterns revealing accessed sensitive data, load balancer metrics exposure, or auto-scaling event timing as attack signals. These are infrastructure-level operational side-channel risks in the load balancing layer that the A2A protocol security framework does not cover.
+
+### RDL_28 - Planning Systems - Strength score: 1
+
+The Cisco A2A Scanner does not address planning system data leakage risks including context window size as a leakage capacity indicator, planning history leakage through task network serialization, method library reconnaissance through registry access, constraint specification leakage revealing resource boundaries, state abstraction mapping leakage revealing information classification structures, decomposition pattern analysis revealing planning strategy, or task completion logging creating execution timeline leakage. These are planning architecture and data management concerns at the agent reasoning layer that are outside the A2A protocol communication security scope.
+
+### RDL_29 - Monte Carlo Tree Search (MCTS) - Strength score: 1
+
+The Cisco A2A Scanner does not address MCTS-specific data leakage risks including MCTS tree statistics as implicit planning memory leaks in shared context, simulation trajectory probabilistic recall attack surfaces, value network confidence scores as strategic information disclosure, rollout policy behavior as implicit information leakage, or replanning trajectory leakage in multi-agent coordination logs. These are planning algorithm and model state leakage risks that the A2A protocol security framework has no applicable controls for.
+
+### RDL_30 - Monitoring and Callbacks - Strength score: 1
+
+The Cisco A2A Scanner does not specifically address discrepancy leakage through monitoring callbacks where agents broadcasting discovered obstacles enumerate exact state space regions and tool availability. The framework's monitoring controls (monitoring and alerting for suspicious activities) are security-event-oriented and do not address the risk of operational status callbacks creating information disclosure channels about system state and available tools.
+
+### RDL_31 - Episodic Memory - Strength score: 1
+
+The Cisco A2A Scanner does not address episodic memory data leakage risks including episodic storage as covert data exfiltration mechanisms, embedding vector inference enabling probabilistic recall leakage, consolidated abstractions as information aggregation for reconstruction, graph relationship traversal for operational pattern reconstruction, deduplication metadata statistical information leakage, or temperature and sampling artifacts in episodic recall creating information channels. These are memory system architecture vulnerabilities entirely outside the A2A protocol communication security domain.
+
+### RDL_32 - Semantic Memory - Strength score: 1
+
+The Cisco A2A Scanner does not address semantic memory context window leakage through retrieved documents, knowledge base document enumeration as information disclosure, embedding similarity leakage enabling document fingerprinting, temporal metadata leakage revealing document history, or knowledge graph structure as a leakage channel through absence of relationships. These are vector database and knowledge base security concerns that require dedicated RAG and semantic memory security controls beyond the A2A protocol scope.
+
+### RDL_33 - RAG Leakage - Strength score: 1
+
+The Cisco A2A Scanner does not address RAG-specific leakage risks including relevance score probabilistic information leakage, query rewriting log exposure of operational intent, deduplication artifact leakage revealing content similarity, compression quality validation failures allowing hallucinated content to propagate as validated knowledge, or semantic-to-working augmentation leakage during knowledge distillation. These are retrieval-augmented generation pipeline integrity and confidentiality risks that the A2A protocol framework does not cover.
+
+### RDL_34 - Utility Functions and Explanations - Strength score: 1
+
+The Cisco A2A Scanner's error handling control (not exposing sensitive information in error messages) provides minimal indirect coverage for error message outcome utility disclosure (RDL_34_4). The streaming security controls (authenticated SSE connections, secure state management) provide marginal coverage for streaming decision rationale leakage (RDL_34_3). However, progressive disclosure UI information leakage, chat interface utility parameter disclosure through technical views, working memory content exposure through shared persistence, and rule condition inference for knowledge reconstruction are UI design and agent internals concerns that the A2A framework does not address.
+
+### RDL_35 - Reinforcement Learning and Policy - Strength score: 1
+
+The Cisco A2A Scanner does not address gradient-based model inversion attacks on learned policies, value function reconstruction revealing training context, policy behavior querying reconstructing training data, experience replay buffer side-channel attacks, reward function reverse engineering, learning curve analysis as information leakage, or context window expansion data leakage in hybrid agent coordination. These are training-time and model-level vulnerabilities in learned agent behavior that the A2A communication protocol security framework cannot address.
+
+### RDL_36 - Multi-Agent Coordination - Strength score: 1
+
+The Cisco A2A Scanner does not address multi-agent conversation trace leakage through shared history where probabilistic token generation may output sensitive data, or knowledge graph edge weight leakage via embedding inference. These are shared coordination state and model internals vulnerabilities at the multi-agent memory and reasoning layer that are entirely outside the A2A protocol communication security scope.
