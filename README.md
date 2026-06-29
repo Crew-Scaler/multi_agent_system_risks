@@ -153,4 +153,4 @@ The `papers/` directory contains 519 research papers cited in the taxonomy. Pape
 
 Domains 9, 11, 12, and 14 are entirely [NoFW] — not addressed by any of the 19 reference frameworks. Domains 10 and 13 are partially covered for specific risk items only. These represent priority gaps for future framework development.
 
-The full taxonomy contains 239 risk items from the GenAI Risk Map (Domains 1–8) plus 828 additional MAS-specific risk items across Domains 2–14.
+The full taxonomy contains 239 risk items from the GenAI Risk Map (Domains 1–8) plus 828 additional MAS-specific risk items across Domains 9–14.
