@@ -10,6 +10,33 @@ MAS risks fully encompass all GenAI risks — Domains 1–8 mirror and expand th
 
 The taxonomy is organized into **14 domains**, **74 categories**, and **1,267 risk items** covering the full MAS risk landscape.
 
+
+## How to Cite this Work
+1. APA Style
+
+   Nguyen, T., Ndebugre, M., & Arremsetty, D. (2026). Security Considerations for Multi-agent Systems. arXiv. https://arxiv.org/abs/2603.09002 
+
+3. MLA Style
+
+   Nguyen, Tam, et al. "Security Considerations for Multi-agent Systems." 2026. arXiv, https://arxiv.org/abs/2603.09002.
+
+4. IEEE Style
+
+   T. Nguyen, M. Ndebugre, and D. Arremsetty, "Security Considerations for Multi-agent Systems," 2026. [Online]. Available: https://arxiv.org/abs/2603.09002
+
+5. bibtex
+
+   ```
+   @misc{nguyen2026securityconsiderationsmultiagentsystems,
+      title={Security Considerations for Multi-agent Systems}, 
+      author={Tam Nguyen and Moses Ndebugre and Dheeraj Arremsetty},
+      year={2026},
+      eprint={2603.09002},
+      archivePrefix={arXiv},
+      primaryClass={cs.CR},
+      url={https://arxiv.org/abs/2603.09002}, 
+    }
+   ```
 ## Key Concepts
 
 **Three-level hierarchy:** Domain → Category → Risk Item
