@@ -8,7 +8,7 @@ This repository contains a unified hierarchy of risks specific to Multi-Agent Sy
 
 MAS risks fully encompass all GenAI risks — Domains 1–8 mirror and expand the GenAI Risk Map — and Domains 9–14 represent novel MAS-specific threat surfaces with no current framework coverage.
 
-The taxonomy is organized into **14 domains**, **74 categories**, and **1,267 risk items** covering the full MAS risk landscape.
+The taxonomy is organized into **14 domains**, **81 categories**, and **1,267 risk items** covering the full MAS risk landscape.
 
 
 ## How to Cite this Work
